@@ -1,3 +1,3 @@
 # pblfinal
 
-A new Flutter project.
+A canteen management app for my college using flutter + firebase!
