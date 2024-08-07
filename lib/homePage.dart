@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'cartPage.dart';
-import 'internalHomePage.dart';
 import 'package:pblfinal/menuPage.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 
@@ -14,8 +13,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final List<Widget> _pages= [
-    const InternalHomePage(),
-     MenuPage(),
+    MenuPage(),
      CartPage(),
   ];
   int _currentIndex = 0;
@@ -35,7 +33,6 @@ class _HomePageState extends State<HomePage> {
               _currentIndex=index;
             });
           }, items: const [
-            Icon(Icons.home),
             Icon(Icons.list),
             Icon(Icons.shopping_cart),
             //probably just implement this using uihelper too???

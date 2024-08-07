@@ -1,67 +1,62 @@
-// import 'package:flutter/foundation.dart';
 import 'dart:convert';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:pblfinal/loginPage.dart';
 import 'package:pblfinal/menuPage.dart';
 
-class Order{
+mixin readyConnection {
+  bool isReady = false;
+}
+
+class Order {
   late String name;
   late int quantity;
   late int cost;
 
-  Order(String n, int q, int c){
-    name=n;
-    quantity=q;
-    cost=c;
-
+  Order(String n, int q, int c) {
+    name = n;
+    quantity = q;
+    cost = c;
   }
 
-  Map<String, dynamic> toJSON()=>{
-    'Item Name: ': name,
-    'Quantity: ': quantity,
-    'Cost: ': cost
-  };
+  Map<String, dynamic> toJSON() => {
+        'Item Name: ': name,
+        'Quantity: ': quantity,
+        'Cost: ': cost,
+      };
 }
 
-class CartPage extends StatefulWidget with CartConnection,nameConnection{
+class CartPage extends StatefulWidget with CartConnection, nameConnection {
   CartPage({super.key});
 
   @override
   State<CartPage> createState() => _CartPageState();
 }
 
-
-
 class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
   int totalCost = 0;
-  List<Order> orders= [];
-  String orderstatus= 'Place Order';
+  List<Order> orders = [];
+  String orderStatus = 'Place Order';
+  String? currentOrderNumber;
+
   @override
   void initState() {
     super.initState();
-    // Add this widget as an observer of the app lifecycle
     calculatetotalCost();
     WidgetsBinding.instance!.addObserver(this);
   }
 
   @override
   void dispose() {
-    // Remove this widget as an observer of the app lifecycle
     WidgetsBinding.instance!.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Check if the app came into the foreground
     if (state == AppLifecycleState.resumed) {
-      // Call setState to update the UI when the page becomes visible
       setState(() {
         calculatetotalCost();
-        // Update any state variables or call any methods here
       });
     }
   }
@@ -71,65 +66,58 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
       'Student Name': widget.userName,
       'Items': jsonEncode(orders.map((order) => order.toJSON()).toList()),
       'Total Cost': totalCost,
-      'isReady': 0,
+      'isReady': false,
     };
   }
 
-void placeOrder() async {
-  try {
-    FirebaseFirestore db = FirebaseFirestore.instance;
-    DocumentReference orderCounterRef = db.collection('meta').doc('orderCounter');
-    
-    // Get the current date
-    DateTime now = DateTime.now();
-    String currentDate = now.toLocal().toString().split(' ')[0]; // Format: YYYY-MM-DD
+  void placeOrder() async {
+    try {
+      FirebaseFirestore db = FirebaseFirestore.instance;
+      DocumentReference orderCounterRef = db.collection('meta').doc('orderCounter');
 
-    // Retrieve the current order number and last reset date from Firestore
-    DocumentSnapshot orderCounterDoc = await orderCounterRef.get();
-    if (!orderCounterDoc.exists) {
-      // Create document if it does not exist
-      await orderCounterRef.set({
-        'currentOrderNumber': 1,
-        'lastResetDate': currentDate,
-      });
-    }
+      DateTime now = DateTime.now();
+      String currentDate = now.toLocal().toString().split(' ')[0];
 
-    int currentOrderNumber = orderCounterDoc['currentOrderNumber'];
-    String lastResetDate = orderCounterDoc['lastResetDate'];
+      DocumentSnapshot orderCounterDoc = await orderCounterRef.get();
+      if (!orderCounterDoc.exists) {
+        await orderCounterRef.set({
+          'currentOrderNumber': 1,
+          'lastResetDate': currentDate,
+        });
+      }
 
-    // Check if we need to reset the order number
-    if (currentDate != lastResetDate) {
-      // Reset the order number and update the last reset date
+      int currentOrderNumber = orderCounterDoc['currentOrderNumber'];
+      String lastResetDate = orderCounterDoc['lastResetDate'];
+
+      if (currentDate != lastResetDate) {
+        await orderCounterRef.update({
+          'currentOrderNumber': 1,
+          'lastResetDate': currentDate,
+        });
+      }
+
+      this.currentOrderNumber = currentOrderNumber.toString();
+      await db.collection("Orders").doc(this.currentOrderNumber).set(orderToJson());
+
       await orderCounterRef.update({
-        'currentOrderNumber': 1,
-        'lastResetDate': currentDate,
+        'currentOrderNumber': FieldValue.increment(1),
       });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Order placed successfully!')),
+      );
+
+      setState(() {});  // Trigger rebuild to update UI
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to place order: $error')),
+      );
     }
-
-    // Place the order with the current order number
-    await db.collection("Orders").doc(currentOrderNumber.toString()).set(orderToJson());
-
-    // Increment the order number for the next order
-    await orderCounterRef.update({
-      'currentOrderNumber': FieldValue.increment(1),
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Order placed successfully!')),
-    );
-  } catch (error) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to place order: $error')),
-    );
   }
-}
 
-
-
-  
   void calculatetotalCost() {
     totalCost = 0;
-    orders.clear(); // Clear previous orders
+    orders.clear();
 
     CartConnection.orders.forEach((key, value) {
       int itemCostOne = CartConnection.items[key] ?? 0;
@@ -138,7 +126,6 @@ void placeOrder() async {
       orders.add(Order(key, value, itemCost));
     });
   }
-  
 
   @override
   Widget build(BuildContext context) {
@@ -147,57 +134,137 @@ void placeOrder() async {
         title: const Text("Cart"),
         automaticallyImplyLeading: false,
       ),
-      body: CartConnection.orders.isNotEmpty
-          ? Column(
-              children: [
-                Container(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.all(15.0),
-                      child: Text('Total Cost: $totalCost',
-                          textAlign: TextAlign.left,
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                    )),
-                SizedBox(
-                  height: 200,
-                  child: ListView.builder(
-                    itemCount: CartConnection.orders.length,
-                    itemBuilder: (context, index) {
-                      String itemName =
-                          CartConnection.orders.keys.elementAt(index);
-                      int quantity =
-                          CartConnection.orders.values.elementAt(index);
-                      int itemCostOne = CartConnection.items[itemName] ?? 0;
-                      int itemCost = itemCostOne * quantity;
-                      // totalCost+=itemCost;
+      body: currentOrderNumber == null
+          ? buildCartContent()
+          : StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance.collection('Orders').doc(currentOrderNumber).snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
 
-                      return ListTile(
-                        title: Text(itemName),
-                        subtitle: Row(
-                          children: [
-                            Text('Quantity: $quantity'),
-                            const SizedBox(width: 10),
-                            Text('Cost: $itemCost'),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                ElevatedButton(
-                    onPressed: (){
-                      placeOrder();
-                    },
-                    child: Text(
-                      orderstatus,
-                      style: TextStyle(fontSize: 10),
-                    ))
-              ],
-            )
-          : const Center(
-              child: Text("Sorry, cart is currently empty"),
+                if (snapshot.hasError) {
+                  return Center(child: Text('Something went wrong'));
+                }
+
+                if (!snapshot.hasData || !snapshot.data!.exists) {
+                  return const Center(child: Text("No order data available"));
+                }
+
+                var orderData = snapshot.data!.data() as Map<String, dynamic>;
+                bool isReady = orderData['isReady'] ?? false;
+
+                if (isReady) {
+                  return ReadyOrderView(orderData: orderData);
+                } else {
+                  return PendingOrderView(orderData: orderData);
+                }
+              },
             ),
     );
   }
 
+  Widget buildCartContent() {
+    return CartConnection.orders.isNotEmpty
+        ? Column(
+            children: [
+              Container(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.all(15.0),
+                  child: Text('Total Cost: $totalCost',
+                      textAlign: TextAlign.left,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              SizedBox(
+                height: 200,
+                child: ListView.builder(
+                  itemCount: CartConnection.orders.length,
+                  itemBuilder: (context, index) {
+                    String itemName = CartConnection.orders.keys.elementAt(index);
+                    int quantity = CartConnection.orders.values.elementAt(index);
+                    int itemCostOne = CartConnection.items[itemName] ?? 0;
+                    int itemCost = itemCostOne * quantity;
+
+                    return ListTile(
+                      title: Text(itemName),
+                      subtitle: Row(
+                        children: [
+                          Text('Quantity: $quantity'),
+                          const SizedBox(width: 10),
+                          Text('Cost: $itemCost'),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              ElevatedButton(
+                onPressed: placeOrder,
+                child: Text(
+                  orderStatus,
+                  style: TextStyle(fontSize: 10),
+                ),
+              ),
+            ],
+          )
+        : const Center(
+            child: Text("Sorry, cart is currently empty"),
+          );
+  }
+}
+
+class ReadyOrderView extends StatelessWidget {
+  final Map<String, dynamic> orderData;
+
+  ReadyOrderView({required this.orderData});
+  
+
+  @override
+  Widget build(BuildContext context) {
+    int mon= orderData['Total Cost'] ?? 0;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check_circle, color: Colors.green, size: 100),
+          SizedBox(height: 20),
+          Text('Your order is ready for pickup!', style: TextStyle(fontSize: 24)),
+          Text('Please pay  $mon at the counter', style: TextStyle(fontSize: 24)),
+        ],
+      ),
+    );
+  }
+}
+
+class PendingOrderView extends StatelessWidget {
+  final Map<String, dynamic> orderData;
+
+  PendingOrderView({required this.orderData});
+  
+
+  @override
+  Widget build(BuildContext context) {
+    String itemsJson = orderData['Items'] ?? '[]';
+    List<dynamic> itemsList = jsonDecode(itemsJson);
+
+    // Format the list of items into a string
+    String itemsText = itemsList.map((item) {
+      var itemName = item['Item Name: '];
+      var quantity = item['Quantity: '];
+      return '$itemName ($quantity)';
+    }).join('\n');
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check_circle, color: Colors.green, size: 100),
+          SizedBox(height: 20),
+          Text('Your order is being prepared!', style: TextStyle(fontSize: 24)),
+          Text('Items include: $itemsText', style: TextStyle(fontSize: 14)),
+        ],
+      ),
+    );
+  }
 }
