@@ -1,23 +1,49 @@
 // import 'package:flutter/foundation.dart';
+import 'dart:convert';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:pblfinal/loginPage.dart';
 import 'package:pblfinal/menuPage.dart';
 
-class CartPage extends StatefulWidget with CartConnection {
+class Order{
+  late String name;
+  late int quantity;
+  late int cost;
+
+  Order(String n, int q, int c){
+    name=n;
+    quantity=q;
+    cost=c;
+
+  }
+
+  Map<String, dynamic> toJSON()=>{
+    'Item Name: ': name,
+    'Quantity: ': quantity,
+    'Cost: ': cost
+  };
+}
+
+class CartPage extends StatefulWidget with CartConnection,nameConnection{
   CartPage({super.key});
 
   @override
   State<CartPage> createState() => _CartPageState();
 }
 
+
+
 class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
   int totalCost = 0;
+  List<Order> orders= [];
   String orderstatus= 'Place Order';
   @override
   void initState() {
     super.initState();
     // Add this widget as an observer of the app lifecycle
-    calculatetotalcost();
+    calculatetotalCost();
     WidgetsBinding.instance!.addObserver(this);
   }
 
@@ -34,18 +60,85 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       // Call setState to update the UI when the page becomes visible
       setState(() {
-        calculatetotalcost();
+        calculatetotalCost();
         // Update any state variables or call any methods here
       });
     }
   }
 
-  void placeOrder(){
-    DatabaseReference db= FirebaseDatabase.instance.ref().child('order');
-    db.push().set({
-      'value': '234',
+  Map<String, dynamic> orderToJson() {
+    return {
+      'Student Name': widget.userName,
+      'Items': jsonEncode(orders.map((order) => order.toJSON()).toList()),
+      'Total Cost': totalCost,
+      'isReady': 0,
+    };
+  }
+
+void placeOrder() async {
+  try {
+    FirebaseFirestore db = FirebaseFirestore.instance;
+    DocumentReference orderCounterRef = db.collection('meta').doc('orderCounter');
+    
+    // Get the current date
+    DateTime now = DateTime.now();
+    String currentDate = now.toLocal().toString().split(' ')[0]; // Format: YYYY-MM-DD
+
+    // Retrieve the current order number and last reset date from Firestore
+    DocumentSnapshot orderCounterDoc = await orderCounterRef.get();
+    if (!orderCounterDoc.exists) {
+      // Create document if it does not exist
+      await orderCounterRef.set({
+        'currentOrderNumber': 1,
+        'lastResetDate': currentDate,
+      });
+    }
+
+    int currentOrderNumber = orderCounterDoc['currentOrderNumber'];
+    String lastResetDate = orderCounterDoc['lastResetDate'];
+
+    // Check if we need to reset the order number
+    if (currentDate != lastResetDate) {
+      // Reset the order number and update the last reset date
+      await orderCounterRef.update({
+        'currentOrderNumber': 1,
+        'lastResetDate': currentDate,
+      });
+    }
+
+    // Place the order with the current order number
+    await db.collection("Orders").doc(currentOrderNumber.toString()).set(orderToJson());
+
+    // Increment the order number for the next order
+    await orderCounterRef.update({
+      'currentOrderNumber': FieldValue.increment(1),
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Order placed successfully!')),
+    );
+  } catch (error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to place order: $error')),
+    );
+  }
+}
+
+
+
+  
+  void calculatetotalCost() {
+    totalCost = 0;
+    orders.clear(); // Clear previous orders
+
+    CartConnection.orders.forEach((key, value) {
+      int itemCostOne = CartConnection.items[key] ?? 0;
+      int itemCost = itemCostOne * value;
+      totalCost += itemCost;
+      orders.add(Order(key, value, itemCost));
     });
   }
+  
 
   @override
   Widget build(BuildContext context) {
@@ -107,12 +200,4 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
     );
   }
 
-  void calculatetotalcost() {
-    totalCost = 0;
-    CartConnection.orders.forEach((key, value) {
-      int itemCostOne = CartConnection.items[key] ?? 0;
-      int itemCost = itemCostOne * value;
-      totalCost += itemCost;
-    });
-  }
 }

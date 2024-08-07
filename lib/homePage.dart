@@ -22,15 +22,15 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.deepPurple,
+      backgroundColor: Color.fromARGB(255, 216, 117, 5),
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: const Text("QuickByte"),
-        backgroundColor: Colors.pink,
+        backgroundColor: Color.fromARGB(255, 194, 183, 87),
       ),
       body: _pages[_currentIndex],
       bottomNavigationBar:
-          CurvedNavigationBar(backgroundColor: Colors.deepPurple,color: Colors.deepPurple.shade200,onTap: (index){
+          CurvedNavigationBar(backgroundColor: Color.fromARGB(255, 216, 117, 5),color: Color.fromARGB(255, 194, 183, 87),onTap: (index){
             setState(() {
               _currentIndex=index;
             });

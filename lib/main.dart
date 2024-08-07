@@ -19,7 +19,6 @@ Future main() async {
   }
   else{
     await Firebase.initializeApp();
-    
   }
   runApp(const MainApp());
 }
@@ -28,10 +27,11 @@ class MainApp extends StatelessWidget {
   const MainApp({super.key});
 
   @override
+
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: "App Title Idk",
+      title: "QuickByte",
       home: LoginPage()
     );
   }

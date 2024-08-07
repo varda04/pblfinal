@@ -33,16 +33,24 @@ class _MenuPageState extends State<MenuPage> {
     }
     setState(() {});
   }
-  void delItemFromCart(String itemName) {
-    if(CartConnection.orders.containsKey(itemName)){
-      CartConnection.orders[itemName] = (CartConnection.orders[itemName] ?? 0) - 1;
-    }
-    else{
-      Fluttertoast.showToast(msg: "Item does not exist in cart :)",
-      timeInSecForIosWeb: 2,
-      webPosition: ToastGravity.BOTTOM,
-      );
-    }
+void delItemFromCart(String itemName) {
+    setState(() {
+      if (CartConnection.orders.containsKey(itemName)) {
+        if (CartConnection.orders[itemName]! > 1) {
+          // Decrement the quantity
+          CartConnection.orders[itemName] = (CartConnection.orders[itemName] ?? 0) - 1;
+        } else {
+          // Remove the item if quantity is 1
+          CartConnection.orders.remove(itemName);
+        }
+      } else {
+        Fluttertoast.showToast(
+          msg: "Item does not exist in cart :)",
+          timeInSecForIosWeb: 2,
+          webPosition: ToastGravity.BOTTOM,
+        );
+      }
+    });
   }
 
   @override
