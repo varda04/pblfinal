@@ -25,7 +25,7 @@ class _LoginPageState extends State<LoginPage> {
           .setSettings(appVerificationDisabledForTesting: true);
       int domainIndex = email.indexOf('@');
       int nameIndex= email.indexOf('_');
-      nameConnection.userName= email.substring(0,nameIndex-1);
+      nameConnection.userName= email.substring(0,domainIndex);
       String sliced = email.substring(domainIndex + 1);
       if (sliced == 'students.isquareit.edu.in') {
         UserCredential? userCredential;
@@ -67,7 +67,7 @@ class _LoginPageState extends State<LoginPage> {
         title: Text("Login Page"),
         centerTitle: true,
       ),
-      body: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+       body: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         UiHelper.CustomTextField(emailController, "Email", Icons.mail, false),
         UiHelper.CustomTextField(
             passwordController, "Password", Icons.password, true),
@@ -77,7 +77,24 @@ class _LoginPageState extends State<LoginPage> {
               passwordController.text.toString());
         }, "Login"),
         SizedBox(height: 20),
-        Text("Only I2IT student email IDs are valid")
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              "Do not have an account?",
+              style: TextStyle(fontSize: 16),
+            ),
+            TextButton(
+                onPressed: () {
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (context) => SignUpPage()));
+                },
+                child: const Text(
+                  "Sign up",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ))
+          ],
+        )
       ]),
     );
   }
