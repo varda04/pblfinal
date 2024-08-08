@@ -1,3 +1,5 @@
+// ignore_for_file: must_be_immutable
+
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -5,7 +7,8 @@ import 'package:pblfinal/loginPage.dart';
 import 'package:pblfinal/menuPage.dart';
 
 mixin readyConnection {
-  bool isReady = false;
+  static bool isReady = false;
+  static String? currentOrderNumber;
 }
 
 class Order {
@@ -26,7 +29,7 @@ class Order {
       };
 }
 
-class CartPage extends StatefulWidget with CartConnection, nameConnection {
+class CartPage extends StatefulWidget with CartConnection, nameConnection, readyConnection {
   CartPage({super.key});
 
   @override
@@ -37,7 +40,7 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
   int totalCost = 0;
   List<Order> orders = [];
   String orderStatus = 'Place Order';
-  String? currentOrderNumber;
+  
 
   @override
   void initState() {
@@ -63,7 +66,7 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
 
   Map<String, dynamic> orderToJson() {
     return {
-      'Student Name': widget.userName,
+      'Student Name': nameConnection.userName,
       'Items': jsonEncode(orders.map((order) => order.toJSON()).toList()),
       'Total Cost': totalCost,
       'isReady': false,
@@ -86,7 +89,7 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
         });
       }
 
-      int currentOrderNumber = orderCounterDoc['currentOrderNumber'];
+      int currentOrderNo = orderCounterDoc['currentOrderNumber'];
       String lastResetDate = orderCounterDoc['lastResetDate'];
 
       if (currentDate != lastResetDate) {
@@ -95,9 +98,11 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
           'lastResetDate': currentDate,
         });
       }
-
-      this.currentOrderNumber = currentOrderNumber.toString();
-      await db.collection("Orders").doc(this.currentOrderNumber).set(orderToJson());
+      setState(() {
+        readyConnection.currentOrderNumber = currentOrderNo.toString();
+      });
+      
+      await db.collection("Orders").doc(readyConnection.currentOrderNumber).set(orderToJson());
 
       await orderCounterRef.update({
         'currentOrderNumber': FieldValue.increment(1),
@@ -107,12 +112,13 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
         SnackBar(content: Text('Order placed successfully!')),
       );
 
-      setState(() {});  // Trigger rebuild to update UI
+      setState(() {});  
     } catch (error) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to place order: $error')),
       );
     }
+    setState(() {});  
   }
 
   void calculatetotalCost() {
@@ -134,10 +140,10 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
         title: const Text("Cart"),
         automaticallyImplyLeading: false,
       ),
-      body: currentOrderNumber == null
+      body: readyConnection.currentOrderNumber == null
           ? buildCartContent()
           : StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance.collection('Orders').doc(currentOrderNumber).snapshots(),
+              stream: FirebaseFirestore.instance.collection('Orders').doc(readyConnection.currentOrderNumber).snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(child: CircularProgressIndicator());
@@ -201,7 +207,11 @@ class _CartPageState extends State<CartPage> with WidgetsBindingObserver {
                 ),
               ),
               ElevatedButton(
-                onPressed: placeOrder,
+                onPressed: (){
+                  setState(() {
+                    placeOrder();
+                  });
+                },
                 child: Text(
                   orderStatus,
                   style: TextStyle(fontSize: 10),
@@ -223,15 +233,16 @@ class ReadyOrderView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    int mon= orderData['Total Cost'] ?? 0;
+    int mon = orderData['Total Cost'] ?? 0;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.check_circle, color: Colors.green, size: 100),
+          
           SizedBox(height: 20),
           Text('Your order is ready for pickup!', style: TextStyle(fontSize: 24)),
-          Text('Please pay  $mon at the counter', style: TextStyle(fontSize: 24)),
+          Text('Please pay ₹$mon at the counter', style: TextStyle(fontSize: 18)),
         ],
       ),
     );
@@ -259,7 +270,7 @@ class PendingOrderView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.check_circle, color: Colors.green, size: 100),
+          Icon(Icons.timer, color: Colors.yellow, size: 100),
           SizedBox(height: 20),
           Text('Your order is being prepared!', style: TextStyle(fontSize: 24)),
           Text('Items include: $itemsText', style: TextStyle(fontSize: 14)),

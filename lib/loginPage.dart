@@ -5,7 +5,7 @@ import 'package:pblfinal/uiHelper.dart';
 import 'package:pblfinal/signupPage.dart';
 import 'package:pblfinal/homePage.dart';
 mixin nameConnection{
-  String userName='';
+  static String userName='';
 }
 
 class LoginPage extends StatefulWidget with nameConnection{
@@ -25,7 +25,7 @@ class _LoginPageState extends State<LoginPage> {
           .setSettings(appVerificationDisabledForTesting: true);
       int domainIndex = email.indexOf('@');
       int nameIndex= email.indexOf('_');
-      widget.userName= email.substring(0,nameIndex-1);
+      nameConnection.userName= email.substring(0,nameIndex-1);
       String sliced = email.substring(domainIndex + 1);
       if (sliced == 'students.isquareit.edu.in') {
         UserCredential? userCredential;
