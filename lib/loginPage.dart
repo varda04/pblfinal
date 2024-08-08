@@ -73,8 +73,8 @@ class _LoginPageState extends State<LoginPage> {
             passwordController, "Password", Icons.password, true),
         SizedBox(height: 30),
         UiHelper.CustomButton(() {
-          logIn(emailController.text.toString(),
-              passwordController.text.toString());
+          logIn(emailController.text.toString().trim(),
+              passwordController.text.toString().trim());
         }, "Login"),
         SizedBox(height: 20),
         Row(
